@@ -1,0 +1,13 @@
+{
+  "name": "git-alias",
+  "version": "1.0.0",
+  "description": "Herramientas CLI interactivas para flujos de trabajo en Git",
+  "type": "module",
+  "bin": {
+    "git-alias": "./src/index.js"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.0",
+    "simple-git": "^3.27.0"
+  }
+}
