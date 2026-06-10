@@ -29,8 +29,9 @@ class Console {
         return {canceled: false, selected};
     }
 
-    async groupMultiselect({message, options = {}, required = false}) {
-        const selected = await groupMultiselect({message, options, required});
+    async groupMultiselect({message, options = {}, required = false, initialValues = []}) {
+    
+        const selected = await groupMultiselect({message, options, required, initialValues});
 
         if (typeof selected === 'symbol') {
             return {canceled: true, selected: null};
@@ -56,6 +57,10 @@ class Console {
         log.step(message);
     }
 
+    info(message) {
+        log.step(pc.bgYellow(pc.black(message)));
+    }
+
     /**
      * Destaca un hito o logro intermedio relevante durante la transacción.
      * Utiliza el mismo símbolo decorativo pero resalta el mensaje en un tono cian/azul eléctrico.
@@ -78,7 +83,8 @@ class Console {
      * Renderiza una cruz roja (✖) en la terminal.
      */
     error(message, code = 1) {
-        log.error(pc.red(`Error: ${message}`));
+        log.error(pc.red(message));
+
         process.exit(code);
     }
 }

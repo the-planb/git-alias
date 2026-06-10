@@ -1,4 +1,5 @@
 import {Cancel, consoleIO, Failure, git, Success} from './index.js';
+import { execa } from 'execa';
 
 export const StashAction = {
     STORED: 'stored',
@@ -148,6 +149,136 @@ export class Stash {
             return Success({action, hash, ...res});
         } catch (error) {
             return Failure(1, error.message);
+        }
+    }
+
+    /**
+     * Recupera y procesa la lista actual del stash.
+     */
+    async list() {
+        try {
+            const rawList = await git.raw(['stash', 'list']);
+            if (!rawList || !rawList.trim()) {
+                return Success({ stashes: [] });
+            }
+
+            const lines = rawList.trim().split('\n');
+            const stashes = lines.map(line => {
+                // Formato estándar: stash@{0}: WIP on master: hash commit_msg
+                const match = line.match(/^stash@\{(\d+)\}: (.*)$/);
+                if (!match) {
+                    return {
+                        index: null,
+                        ref: line,
+                        label: line
+                    };
+                }
+
+                const index = parseInt(match[1], 10);
+                const ref = `stash@{${index}}`;
+                const content = match[2];
+
+                // Extraemos detalles adicionales para mejorar la presentación visual
+                let branch = 'unknown';
+                let message = content;
+
+                const branchMatch = content.match(/On ([^:]+):/);
+                if (branchMatch) {
+                    branch = branchMatch[1];
+                    message = content.split(`${branchMatch[0]} `)[1] || content;
+                } else if (content.startsWith('WIP on ')) {
+                    const wipMatch = content.match(/WIP on ([^:]+):/);
+                    if (wipMatch) {
+                        branch = wipMatch[1];
+                        message = content.split(`${wipMatch[0]} `)[1] || content;
+                    }
+                }
+
+                return {
+                    index,
+                    ref,
+                    branch,
+                    message,
+                    label: line
+                };
+            });
+
+            return Success({ stashes });
+        } catch (error) {
+            return Failure(1, `Error al leer la lista de stash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Muestra el diff patch del stash seleccionado.
+     */
+    async inspect(index) {
+        try {
+            const diff = await git.raw(['stash', 'show', '-p', `stash@{${index}}`]);
+            return Success({ diff });
+        } catch (error) {
+            return Failure(1, `Error al inspeccionar el stash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Aplica los cambios del stash indicado sin borrarlo del listado.
+     */
+    async apply(index) {
+        try {
+            await git.raw(['stash', 'apply', `stash@{${index}}`]);
+            return Success();
+        } catch (error) {
+            return Failure(1, `Error al aplicar el stash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Aplica los cambios del stash indicado y lo elimina de la lista.
+     */
+    async pop(index) {
+        try {
+            await git.raw(['stash', 'pop', `stash@{${index}}`]);
+            return Success();
+        } catch (error) {
+            return Failure(1, `Error al extraer (pop) el stash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Elimina de forma definitiva un stash concreto.
+     */
+    async drop(index) {
+        try {
+            await git.raw(['stash', 'drop', `stash@{${index}}`]);
+            return Success();
+        } catch (error) {
+            return Failure(1, `Error al descartar el stash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Limpia de forma destructiva y masiva todo el almacén de stash.
+     */
+    async clean() {
+        try {
+            await git.raw(['stash', 'clear']);
+            return Success();
+        } catch (error) {
+            return Failure(1, `Error al vaciar el almacén de stash: ${error.message}`);
+        }
+    }
+
+    /**
+     * Ejecuta la creación de un stash parcial interactivo.
+     * Requiere heredar stdio debido al proceso interactivo de selección de líneas de Git.
+     */
+    async pushInteractive() {
+        try {
+            await execa('git', ['stash', 'push', '-p'], { stdio: 'inherit' });
+            return Success();
+        } catch (error) {
+            return Failure(1, `Error durante el stash interactivo: ${error.message}`);
         }
     }
 }
